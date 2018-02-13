@@ -1,5 +1,30 @@
 const NnbuToken = artifacts.require('./NnbuToken.sol');
+const NnbuCrowdsale = artifacts.require('./NnbuCrowdsale.sol');
+const Whitelist = artifacts.require('./Whitelist.sol');
 
-module.exports = function(deployer) {
-    deployer.deploy(NnbuToken);
+const BigNumber = web3.BigNumber;
+const dayInSecs = 86400;
+
+const startTime = web3.eth.getBlock(web3.eth.blockNumber).timestamp + 20; // twenty secs in the future
+const endTime = startTime + dayInSecs * 60; // 60 days
+const rate = new BigNumber(10);
+
+module.exports = function(deployer, network, [_, wallet]) {
+    return deployer
+        .then(() => {
+            return deployer.deploy(NnbuToken);
+        })
+        .then(() => {
+            return deployer.deploy(Whitelist);
+        })
+        .then(() => {
+            return deployer.deploy(
+                NnbuCrowdsale,
+                startTime,
+                endTime,
+                Whitelist.address,
+                rate,
+                wallet
+            );
+        });
 };
