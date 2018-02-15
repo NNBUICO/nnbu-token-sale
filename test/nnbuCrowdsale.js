@@ -3,16 +3,15 @@ const TeamReserve = artifacts.require('./TeamReserve.sol');
 const NnbuToken = artifacts.require('./NnbuToken.sol');
 const Whitelist = artifacts.require('./Whitelist.sol');
 
-const { should, ensuresException, getBlockNow } = require('./helpers/utils');
+const { should, ensuresException } = require('./helpers/utils');
 const expect = require('chai').expect;
-const timer = require('./helpers/timer');
+const { latestTime, duration, increaseTimeTo } = require('./helpers/timer');
 
 const BigNumber = web3.BigNumber;
 
 contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
     const rate = new BigNumber(50);
     const newRate = new BigNumber(60);
-    const dayInSecs = 86400;
     const value = new BigNumber(1);
 
     const expectedTeamReserve = new BigNumber(7500000e18);
@@ -24,9 +23,9 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
     let teamReservesContract, whitelist;
 
     const newCrowdsale = rate => {
-        startTime = getBlockNow() + 20; // crowdsale starts in 20 seconds
-        presaleEnds = startTime + dayInSecs * 20; // 20 days
-        endTime = startTime + dayInSecs * 60; // 60 days
+        startTime = latestTime() + duration.seconds(20); // crowdsale starts in 20 seconds
+        presaleEnds = startTime + duration.days(20);
+        endTime = startTime + duration.days(60);
 
         return Whitelist.new().then(whitelistRegistry => {
             whitelist = whitelistRegistry;
@@ -110,7 +109,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
     describe('#mintTokensFor', function() {
         it('must NOT be called by a non owner', async () => {
-            await timer(dayInSecs * 65);
+            await increaseTimeTo(latestTime() + duration.days(65));
 
             try {
                 await crowdsale.mintTokensFor(buyer, 10e18, {
@@ -127,7 +126,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
         it('should NOT mint tokens when token cap is reached', async () => {
             const tokenCap = await crowdsale.TOTAL_TOKENS_SUPPLY();
-            await timer(dayInSecs * 65);
+            await increaseTimeTo(latestTime() + duration.days(65));
 
             try {
                 await crowdsale.mintTokensFor(
@@ -144,7 +143,8 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('should NOT allow manual minting of tokens before crowdsale finishes', async () => {
-            await timer(50);
+            await increaseTimeTo(latestTime() + duration.seconds(50));
+
             try {
                 await crowdsale.mintTokensFor(buyer, value);
                 assert.fail();
@@ -157,7 +157,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('mints tokens manually after the crowdsale finishes', async () => {
-            await timer(dayInSecs * 65);
+            await increaseTimeTo(latestTime() + duration.days(65));
             const { logs } = await crowdsale.mintTokensFor(buyer, value);
 
             const buyerBalance = await token.balanceOf(buyer);
@@ -170,7 +170,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
     describe('whitelist', () => {
         it('only allows owner to add to the whitelist', async () => {
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
 
             try {
                 await whitelist.addToWhitelist([buyer, buyer2], {
@@ -193,7 +193,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('only allows owner to remove from the whitelist', async () => {
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
             await whitelist.addToWhitelist([buyer, buyer2], {
                 from: owner
             });
@@ -217,7 +217,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('shows whitelist addresses', async () => {
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
             await whitelist.addToWhitelist([buyer, buyer2], {
                 from: owner
             });
@@ -234,7 +234,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('has WhitelistUpdated event', async () => {
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
             const { logs } = await whitelist.addToWhitelist([buyer, buyer2], {
                 from: owner
             });
@@ -250,7 +250,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('allows ONLY whitelisted addresses to purchase tokens', async () => {
-            await timer(dayInSecs * 30);
+            await increaseTimeTo(latestTime() + duration.days(30));
 
             try {
                 await crowdsale.buyTokens(user1, { from: user1 });
@@ -270,7 +270,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('does not allow purchases with less than 1 ether', async () => {
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
 
             try {
                 await crowdsale.buyTokens(buyer, { value: 1e17, from: buyer });
@@ -284,7 +284,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('gives 60% discount for presale participants', async () => {
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
 
             await crowdsale.buyTokens(buyer, { value: 1e18, from: buyer });
 
@@ -297,7 +297,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
             token = NnbuToken.at(await crowdsale.token());
 
             await whitelist.addToWhitelist([buyer]);
-            await timer(dayInSecs);
+            await increaseTimeTo(latestTime() + duration.days(1));
 
             try {
                 await crowdsale.buyTokens(buyer, { value: 1e18, from: buyer });
@@ -311,7 +311,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('allows ONLY addresses that call buyTokens to purchase tokens', async () => {
-            await timer(dayInSecs * 30);
+            await increaseTimeTo(latestTime() + duration.days(30));
 
             try {
                 await crowdsale.buyTokens(buyer, { from: owner });
@@ -331,7 +331,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('does NOT buy tokens if crowdsale is paused', async () => {
-            await timer(dayInSecs * 30);
+            await increaseTimeTo(latestTime() + duration.days(30));
             await crowdsale.pause();
             let buyerBalance;
 
@@ -358,7 +358,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
             await whitelist.addToWhitelist([buyer, buyer2]);
 
-            await timer(dayInSecs * 30);
+            await increaseTimeTo(latestTime() + duration.days(30));
 
             await crowdsale.buyTokens(buyer, { from: buyer, value: 2e18 });
 
@@ -385,15 +385,13 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
             crowdsale = await newCrowdsale(totalTokensForCrowdsale);
             token = NnbuToken.at(await crowdsale.token());
 
-            await whitelist.addToWhitelist([buyer]);
-            await timer(dayInSecs * 42);
+            await increaseTimeTo(latestTime() + duration.days(30));
 
+            await whitelist.addToWhitelist([buyer]);
             await crowdsale.buyTokens(buyer, { value: 1e18, from: buyer });
 
-            await timer(dayInSecs * 20);
-
+            await increaseTimeTo(latestTime() + duration.days(70));
             await crowdsale.setTeamWalletAddress(teamReservesContract.address);
-
             await crowdsale.finalize();
         });
 
@@ -418,13 +416,14 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
             await whitelist.addToWhitelist([buyer, buyer2]);
 
-            await timer(dayInSecs * 42);
+            await increaseTimeTo(latestTime() + duration.days(42));
+
             let finishMinting = await token.mintingFinished();
             finishMinting.should.be.false;
 
             await crowdsale.buyTokens(buyer, { value: 1e18, from: buyer });
 
-            await timer(dayInSecs * 20);
+            await increaseTimeTo(latestTime() + duration.days(30));
             await crowdsale.setTeamWalletAddress(teamReservesContract.address);
             await crowdsale.finalize();
 
@@ -441,12 +440,12 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
                 await crowdsale.token()
             );
 
-            await timer(dayInSecs * 30);
+            await increaseTimeTo(latestTime() + duration.days(30));
 
             await whitelist.addToWhitelist([buyer]);
             await crowdsale.buyTokens(buyer, { value: 1e18, from: buyer });
 
-            timer(dayInSecs * 70);
+            await increaseTimeTo(latestTime() + duration.days(70));
             await crowdsale.setTeamWalletAddress(teamReservesContract.address);
             await crowdsale.finalize();
         });
@@ -471,7 +470,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('unlocks advisors allocation after the unlock period is up', async function() {
-            await timer(dayInSecs * 370);
+            await increaseTimeTo(latestTime() + duration.days(370));
 
             await teamReservesContract.unlock();
 
@@ -494,7 +493,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('is able to kill contract after one year', async () => {
-            await timer(dayInSecs * 470); // 470 days after
+            await increaseTimeTo(latestTime() + duration.days(470)); // 470 days after
 
             await teamReservesContract.kill();
 
