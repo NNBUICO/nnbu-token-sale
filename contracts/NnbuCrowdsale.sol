@@ -19,6 +19,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
     uint256 constant public COMPANY_SHARE =         7500000e18; // 7.5 M
 
     address public teamReserve;
+    uint256 public presaleEnds;
 
     // remainderPurchaser and remainderTokens info saved in the contract
     // used for reference for contract owner to send refund if any to last purchaser after end of crowdsale
@@ -42,6 +43,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
     function NnbuCrowdsale
         (
             uint256 _startTime,
+            uint256 _presaleEnds,
             uint256 _endTime,
             address _whitelist,
             uint256 _rate,
@@ -54,6 +56,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
 
         require(_whitelist != address(0));
         whitelist = Whitelist(_whitelist);
+        presaleEnds = _presaleEnds;
 
         NnbuToken(token).pause();
     }
@@ -117,6 +120,14 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
 
         // calculate token amount to be created
         uint256 tokens = weiAmount.mul(rate);
+
+        // private and public presale have similar bonus structures
+        // hence lumping then together
+        if (now <= presaleEnds) {
+            uint256 presaleBonus = 60;
+            uint256 numOfBonusTokens = tokens.mul(presaleBonus).div(100);
+            tokens = tokens.add(numOfBonusTokens);
+        }
 
         //remainder logic
         if (token.totalSupply().add(tokens) > TOTAL_TOKENS_FOR_CROWDSALE) {

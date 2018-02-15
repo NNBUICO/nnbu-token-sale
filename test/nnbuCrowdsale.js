@@ -19,12 +19,13 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
     const totalTokensForCrowdsale = new BigNumber(52500000e18);
     const totalTokenSupply = new BigNumber(60000000e18);
 
-    let startTime, endTime;
+    let startTime, presaleEnds, endTime;
     let crowdsale, token;
     let teamReservesContract, whitelist;
 
     const newCrowdsale = rate => {
         startTime = getBlockNow() + 20; // crowdsale starts in 20 seconds
+        presaleEnds = startTime + dayInSecs * 20; // 20 days
         endTime = startTime + dayInSecs * 60; // 60 days
 
         return Whitelist.new().then(whitelistRegistry => {
@@ -32,6 +33,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
             return NnbuCrowdsale.new(
                 startTime,
+                presaleEnds,
                 endTime,
                 whitelist.address,
                 rate,
@@ -249,7 +251,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('allows ONLY whitelisted addresses to purchase tokens', async () => {
-            await timer(dayInSecs);
+            await timer(dayInSecs * 30);
 
             try {
                 await crowdsale.buyTokens(user1, { from: user1 });
@@ -268,8 +270,17 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
             buyerBalance.should.be.bignumber.equal(50);
         });
 
-        it('allows ONLY addresses that call buyTokens to purchase tokens', async () => {
+        it('gives 60% discount for presale participants', async () => {
             await timer(dayInSecs);
+
+            await crowdsale.buyTokens(buyer, { value, from: buyer });
+
+            const buyerBalance = await token.balanceOf(buyer);
+            buyerBalance.should.be.bignumber.equal(80);
+        });
+
+        it('allows ONLY addresses that call buyTokens to purchase tokens', async () => {
+            await timer(dayInSecs * 30);
 
             try {
                 await crowdsale.buyTokens(buyer, { from: owner });
@@ -289,7 +300,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
 
         it('does NOT buy tokens if crowdsale is paused', async () => {
-            await timer(dayInSecs);
+            await timer(dayInSecs * 30);
             await crowdsale.pause();
             let buyerBalance;
 
@@ -316,7 +327,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
             await whitelist.addToWhitelist([buyer, buyer2]);
 
-            await timer(dayInSecs);
+            await timer(dayInSecs * 30);
 
             await crowdsale.buyTokens(buyer, { from: buyer, value: 2 });
 
@@ -399,7 +410,7 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
                 await crowdsale.token()
             );
 
-            await timer(50);
+            await timer(dayInSecs * 30);
 
             await whitelist.addToWhitelist([buyer]);
             await crowdsale.buyTokens(buyer, { value, from: buyer });
