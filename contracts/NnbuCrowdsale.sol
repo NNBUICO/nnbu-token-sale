@@ -112,8 +112,8 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
         whitelisted(beneficiary)
         payable
     {
-        require(beneficiary != address(0));
-        require(msg.sender == beneficiary);
+        require(beneficiary != address(0) && msg.sender == beneficiary);
+        require(msg.value >= 1 ether);
         require(validPurchase() && token.totalSupply() < TOTAL_TOKENS_FOR_CROWDSALE);
 
         uint256 weiAmount = msg.value;
