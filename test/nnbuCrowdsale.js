@@ -108,10 +108,12 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
         });
     });
 
-    describe('#mintTokenForPreCrowdsale', function() {
+    describe('#mintTokensFor', function() {
         it('must NOT be called by a non owner', async () => {
+            await timer(dayInSecs * 65);
+
             try {
-                await crowdsale.mintTokenForPreCrowdsale(buyer, 10e18, {
+                await crowdsale.mintTokensFor(buyer, 10e18, {
                     from: buyer
                 });
                 assert.fail();
@@ -123,13 +125,14 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
             buyerBalance.should.be.bignumber.equal(0);
         });
 
-        it('should NOT mint tokens when pre crowdsale cap is reached', async () => {
-            const preCrowdsaleCap = await crowdsale.PRE_CROWDSALE_CAP();
+        it('should NOT mint tokens when token cap is reached', async () => {
+            const tokenCap = await crowdsale.TOTAL_TOKENS_SUPPLY();
+            await timer(dayInSecs * 65);
 
             try {
-                await crowdsale.mintTokenForPreCrowdsale(
+                await crowdsale.mintTokensFor(
                     buyer,
-                    preCrowdsaleCap.toNumber() + 10e18
+                    tokenCap.toNumber() + 10e18
                 );
                 assert.fail();
             } catch (e) {
@@ -140,10 +143,10 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
             buyerBalance.should.be.bignumber.equal(0);
         });
 
-        it('should NOT mint tokens for private investors after crowdsale starts', async () => {
+        it('should NOT allow manual minting of tokens before crowdsale finishes', async () => {
             await timer(50);
             try {
-                await crowdsale.mintTokenForPreCrowdsale(buyer, value);
+                await crowdsale.mintTokensFor(buyer, value);
                 assert.fail();
             } catch (e) {
                 ensuresException(e);
@@ -153,18 +156,14 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
             buyerBalance.should.be.bignumber.equal(0);
         });
 
-        it('mints tokens to private investors before the crowdsale starts', async () => {
-            const { logs } = await crowdsale.mintTokenForPreCrowdsale(
-                buyer,
-                value
-            );
+        it('mints tokens manually after the crowdsale finishes', async () => {
+            await timer(dayInSecs * 65);
+            const { logs } = await crowdsale.mintTokensFor(buyer, value);
 
             const buyerBalance = await token.balanceOf(buyer);
             buyerBalance.should.be.bignumber.equal(value);
 
-            const event = logs.find(
-                e => e.event === 'PrivateInvestorTokenPurchase'
-            );
+            const event = logs.find(e => e.event === 'MintedTokensFor');
             should.exist(event);
         });
     });
@@ -277,6 +276,23 @@ contract('NnbuCrowdsale', ([owner, wallet, buyer, buyer2, user1, user2]) => {
 
             const buyerBalance = await token.balanceOf(buyer);
             buyerBalance.should.be.bignumber.equal(80);
+        });
+
+        it('does not allow purchases that goes over pre-crowdsale cap during for presale event', async () => {
+            crowdsale = await newCrowdsale(totalTokensForCrowdsale);
+            token = NnbuToken.at(await crowdsale.token());
+
+            await whitelist.addToWhitelist([buyer]);
+            await timer(dayInSecs);
+
+            try {
+                await crowdsale.buyTokens(buyer, { value, from: buyer });
+            } catch (e) {
+                ensuresException(e);
+            }
+
+            const buyerBalance = await token.balanceOf(buyer);
+            buyerBalance.should.be.bignumber.equal(0);
         });
 
         it('allows ONLY addresses that call buyTokens to purchase tokens', async () => {

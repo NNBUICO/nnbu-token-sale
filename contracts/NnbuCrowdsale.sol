@@ -29,7 +29,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
     // external contracts
     Whitelist public whitelist;
 
-    event PrivateInvestorTokenPurchase(address indexed investor, uint256 tokensPurchased);
+    event MintedTokensFor(address indexed investor, uint256 tokensPurchased);
     event TokenRateChanged(uint256 previousRate, uint256 newRate);
 
     /**
@@ -78,19 +78,19 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
     }
 
     /**
-     * @dev Mint tokens for pre crowdsale purchases before crowdsale starts
-     * @param investorsAddress Purchaser's address
-     * @param tokensPurchased Tokens purchased during pre crowdsale
+     * @dev Mint tokens investors that sent fiat for token purchases
+     * @param beneficiaryAddress Address of beneficiary
+     * @param amountOfTokens Number of tokens to be created
      */
-    function mintTokenForPreCrowdsale(address investorsAddress, uint256 tokensPurchased)
-        external
+    function mintTokensFor(address beneficiaryAddress, uint256 amountOfTokens)
+        public
         onlyOwner
     {
-        require(now < startTime && investorsAddress != address(0));
-        require(token.totalSupply().add(tokensPurchased) <= PRE_CROWDSALE_CAP);
+        require(beneficiaryAddress != address(0) && hasEnded());
+        require(token.totalSupply().add(amountOfTokens) <= TOTAL_TOKENS_SUPPLY);
 
-        token.mint(investorsAddress, tokensPurchased);
-        PrivateInvestorTokenPurchase(investorsAddress, tokensPurchased);
+        token.mint(beneficiaryAddress, amountOfTokens);
+        MintedTokensFor(beneficiaryAddress, amountOfTokens);
     }
 
     /**
@@ -127,6 +127,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
             uint256 presaleBonus = 60;
             uint256 numOfBonusTokens = tokens.mul(presaleBonus).div(100);
             tokens = tokens.add(numOfBonusTokens);
+            require(token.totalSupply().add(tokens) <= PRE_CROWDSALE_CAP);
         }
 
         //remainder logic
