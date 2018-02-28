@@ -1,4 +1,4 @@
-# ODEM.io ICO
+# NNBU ICO
 
 ## Development
 
