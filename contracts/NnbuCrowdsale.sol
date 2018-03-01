@@ -35,6 +35,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
     /**
      * @dev Contract constructor function
      * @param _startTime The timestamp of the beginning of the crowdsale
+     * @param _presaleEnds The timestamp of end of pressale
      * @param _endTime Timestamp when the crowdsale will finish
      * @param _whitelist contract containing the whitelisted addresses
      * @param _rate The token rate per ETH
