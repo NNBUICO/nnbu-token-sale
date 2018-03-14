@@ -88,7 +88,7 @@ contract NnbuCrowdsale is FinalizableCrowdsale, Pausable {
         onlyOwner
     {
         require(beneficiaryAddress != address(0) && hasEnded());
-        require(token.totalSupply().add(amountOfTokens) <= TOTAL_TOKENS_SUPPLY);
+        require(token.totalSupply().add(amountOfTokens).add(COMPANY_SHARE) <= TOTAL_TOKENS_SUPPLY);
 
         token.mint(beneficiaryAddress, amountOfTokens);
         MintedTokensFor(beneficiaryAddress, amountOfTokens);
